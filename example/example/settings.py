@@ -36,6 +36,7 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'tenants',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -57,8 +58,9 @@ WSGI_APPLICATION = 'example.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'ENGINE': 'tenants.backends.postgresql',
+        'NAME': 'tenants_example',
+        'HOST': 'localhost',
     }
 }
 
