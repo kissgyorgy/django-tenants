@@ -1,0 +1,10 @@
+*~
+*.py[co]
+*.swp
+.DS_Store
+.idea/
+.cache
+_build/
+build/
+dist/
+django_tenants.egg-info
