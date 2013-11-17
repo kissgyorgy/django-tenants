@@ -2,6 +2,9 @@ import re
 from django.conf import settings
 from django.db.backends.postgresql_psycopg2 import base
 from django.db import ProgrammingError
+from django.db.models import get_model
+from django.utils.functional import cached_property
+from tenants.utils import get_app_models
 
 
 # from the postgresql doc
@@ -63,6 +66,51 @@ class DatabaseWrapper(base.DatabaseWrapper):
     def drop_schema(self, schema):
         """DROP schema with EVERY tables."""
         self.cursor().execute('DROP SCHEMA %s CASCADE', [schema])
+
+    # We need to make it a property, otherwise it
+    # "triggers some setup which tries to load the backend which in turn will fail cause it tries to retrigger that"
+    # Basically, we can only construct this list in runtime, after the database backend properly built.
+    @cached_property
+    def tenant_models(self):
+        """
+        Return the list of tenant models generated from TENANT_APPS setting.
+        """
+        return [mod for appstr in settings.TENANT_APPS for mod in get_app_models(appstr)
+                # South manipulate INSTALLED_APPS on sycdb, so this will just put those in
+                # which South needs right now
+                if appstr in settings.INSTALLED_APPS]
+
+    @cached_property
+    def shared_models(self):
+        """
+        Return the list of shared models generated from the SHARED_APPS setting.
+        """
+        # SHARED_APPS is optional, so INSTALLED_APPS will be used if not available
+        shared_apps = getattr(settings, 'SHARED_APPS', ())
+        return [mod for appstr in shared_apps for mod in get_app_models(appstr)
+                # check for South
+                if appstr in settings.INSTALLED_APPS]
+
+    @cached_property
+    def public_models(self):
+        """
+        Return the list of models generated from SHARED_MODELS setting.
+
+        SHARED_MODELS is an iterable which members are in a form of 'applabel.Model'
+        e.g. 'auth.User' --> User model from django.contrib.auth app
+        FIXME: public_models._meta.managed bypassed
+        """
+        installed_app_labels = [app.split('.')[-1] for app in settings.INSTALLED_APPS]
+
+        models = []
+        # SHARED_MODELS is optional, so it will be empty if the setting is not available
+        for modstr in getattr(settings, 'PUBLIC_MODELS', ()):
+            mod_split = modstr.split('.')
+            # check for South
+            if mod_split[-2] in installed_app_labels:
+                models.append(get_model(mod_split[-2], mod_split[-1]))
+
+        return models
 
     def _set_search_path(self):
         if not self._schema:
