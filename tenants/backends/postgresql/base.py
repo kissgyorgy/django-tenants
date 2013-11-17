@@ -1,6 +1,7 @@
 import re
 from django.conf import settings
 from django.db.backends.postgresql_psycopg2 import base
+from django.db import ProgrammingError
 
 
 # from the postgresql doc
@@ -68,7 +69,7 @@ class DatabaseWrapper(base.DatabaseWrapper):
             # The connection will get reused, so make sure
             # we don't allow connecting until schema is set!
             self.connection = None
-            raise RuntimeError('Schema is not set on connection')
+            raise ProgrammingError('Schema is not set on connection')
 
         # Database will search in schema from left to right when
         # looking for the object (table, index, sequence, etc.)
