@@ -1,5 +1,7 @@
 import re
+from functools import wraps
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db.backends.postgresql_psycopg2 import base
 from django.db import ProgrammingError
 from django.db.models import get_model
@@ -7,17 +9,18 @@ from django.utils.functional import cached_property
 from tenants.utils import get_app_models
 
 
-# from the postgresql doc
-# http://www.postgresql.org/docs/9.1/static/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS
-SQL_IDENTIFIER_PATTERN = re.compile('^[_a-zA-Z][_a-zA-Z0-9]{,62}$')
-
 DatabaseError = base.DatabaseError
 IntegrityError = base.IntegrityError
 
 
 class DatabaseWrapper(base.DatabaseWrapper):
+    # from the postgresql doc
+    # http://www.postgresql.org/docs/9.1/static/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS
+    VALID_IDENTIFIER_RE = re.compile('^[_a-zA-Z][_a-zA-Z0-9]{,62}$')
+
     def __init__(self, *args, **kwargs):
         super(DatabaseWrapper, self).__init__(*args, **kwargs)
+        # Rather fail than expose some data which the tenant should not see!
         self._schema = None
 
     def init_connection_state(self):
@@ -33,6 +36,27 @@ class DatabaseWrapper(base.DatabaseWrapper):
 
         # PEP-249, also respect database setting
         self.set_autocommit(False)
+    def validate_schema(self, schema):
+        """
+        Validate schema name based on PostgreSQL documentation.
+
+        See: http://www.postgresql.org/docs/9.1/static/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS
+        It protect agains SQL injections, as only valid identifier will be allowed as schema names.
+        Throws ValidationError if not valid, else return True
+        """
+        if not self.VALID_IDENTIFIER_RE.match(schema):
+            raise ValidationError('Schema schema "%s" is not valid!' % schema)
+        return True
+
+    def requires_valid_schema(func):
+        """
+        Decorator for class methods which needs schema as the first argument to prevent SQL injection attacks.
+        """
+        @wraps(func)
+        def wrapper(self, schema, *args, **kwargs):
+            self.validate_schema(schema)
+            return func(self, schema, *args, **kwargs)
+        return wrapper
 
     @cached_property
     def PUBLIC_SCHEMA(self):
@@ -44,15 +68,15 @@ class DatabaseWrapper(base.DatabaseWrapper):
         return self._schema
 
     @schema.setter
+    @requires_valid_schema
     def schema(self, schema):
-        """Set schema and modify search_path accordingly."""
+        """
+        Set schema and modify search_path accordingly.
+        """
         self._schema = schema
         self._set_search_path()
 
-    @staticmethod
-    def schema_valid(identifier):
-        return SQL_IDENTIFIER_PATTERN.match(identifier)
-
+    @requires_valid_schema
     def schema_exists(self, schema):
         """
         Check if this schema already exists in the db.
@@ -64,9 +88,12 @@ class DatabaseWrapper(base.DatabaseWrapper):
                        "WHERE schema_name = %s)", [schema])
         return cursor.fetchone()[0]
 
+    @requires_valid_schema
     def create_schema(self, schema):
-        self.cursor().execute('CREATE SCHEMA %s', [schema])
+        # we cannot use automatic escaping here, because schema name is not SQL string
+        self.cursor().execute('CREATE SCHEMA "%s"' % schema)
 
+    @requires_valid_schema
     def drop_schema(self, schema):
         """DROP schema with EVERY tables."""
         self.cursor().execute('DROP SCHEMA %s CASCADE', [schema])

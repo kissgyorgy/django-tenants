@@ -24,9 +24,7 @@ class BaseTenant(models.Model):
                                    "Current schema is %s." % conn.schema)
 
         if is_new and create_schema:
-            if not conn.schema_valid(self.schema):
-                raise ValidationError('Invalid string used for the schema name %s.' % self.schema)
-
+            conn.validate_schema(self.schema)
             if conn.schema_exists(self.schema):
                 raise IntegrityError('Schema %s already exists' % self.schema)
 
