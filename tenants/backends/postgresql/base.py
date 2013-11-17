@@ -11,8 +11,6 @@ from tenants.utils import get_app_models
 # http://www.postgresql.org/docs/9.1/static/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS
 SQL_IDENTIFIER_PATTERN = re.compile('^[_a-zA-Z][_a-zA-Z0-9]{,62}$')
 
-PUBLIC_SCHEMA = getattr(settings, 'PUBLIC_SCHEMA', 'public')
-
 DatabaseError = base.DatabaseError
 IntegrityError = base.IntegrityError
 
@@ -36,14 +34,20 @@ class DatabaseWrapper(base.DatabaseWrapper):
         # PEP-249, also respect database setting
         self.set_autocommit(False)
 
-    def set_schema(self, schema):
+    @cached_property
+    def PUBLIC_SCHEMA(self):
+        return getattr(settings, 'PUBLIC_SCHEMA', 'public')
+
+    @property
+    def schema(self):
+        """Currently active database schema."""
+        return self._schema
+
+    @schema.setter
+    def schema(self, schema):
         """Set schema and modify search_path accordingly."""
         self._schema = schema
         self._set_search_path()
-
-    def get_schema(self):
-        """Get currently active database schema."""
-        return self._schema
 
     @staticmethod
     def schema_valid(identifier):
@@ -71,7 +75,7 @@ class DatabaseWrapper(base.DatabaseWrapper):
     # "triggers some setup which tries to load the backend which in turn will fail cause it tries to retrigger that"
     # Basically, we can only construct this list in runtime, after the database backend properly built.
     @cached_property
-    def tenant_models(self):
+    def TENANT_MODELS(self):
         """
         Return the list of tenant models generated from TENANT_APPS setting.
         """
@@ -81,7 +85,7 @@ class DatabaseWrapper(base.DatabaseWrapper):
                 if appstr in settings.INSTALLED_APPS]
 
     @cached_property
-    def shared_models(self):
+    def SHARED_MODELS(self):
         """
         Return the list of shared models generated from the SHARED_APPS setting.
         """
@@ -92,7 +96,7 @@ class DatabaseWrapper(base.DatabaseWrapper):
                 if appstr in settings.INSTALLED_APPS]
 
     @cached_property
-    def public_models(self):
+    def PUBLIC_MODELS(self):
         """
         Return the list of models generated from SHARED_MODELS setting.
 
@@ -122,7 +126,7 @@ class DatabaseWrapper(base.DatabaseWrapper):
         # Database will search in schema from left to right when
         # looking for the object (table, index, sequence, etc.)
         # so if something exists on the tenant schema, it will found that first
-        if self._schema == PUBLIC_SCHEMA:
-            self.cursor().execute('SET search_path TO %s', [PUBLIC_SCHEMA])
+        if self._schema == self.PUBLIC_SCHEMA:
+            self.cursor().execute('SET search_path TO %s', [self.PUBLIC_SCHEMA])
         else:
-            self.cursor().execute('SET search_path TO %s,%s', [self._schema, PUBLIC_SCHEMA])
+            self.cursor().execute('SET search_path TO %s,%s', [self._schema, self.PUBLIC_SCHEMA])
