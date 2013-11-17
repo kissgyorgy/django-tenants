@@ -6,6 +6,7 @@ from django.db.backends.postgresql_psycopg2 import base
 from django.db import ProgrammingError
 from django.db.models import get_model
 from django.utils.functional import cached_property
+from tenants.backends.postgresql.creation import ShemaAwareDatabaseCreation
 from tenants.utils import get_app_models
 
 
@@ -22,6 +23,7 @@ class DatabaseWrapper(base.DatabaseWrapper):
         super(DatabaseWrapper, self).__init__(*args, **kwargs)
         # Rather fail than expose some data which the tenant should not see!
         self._schema = None
+        self.creation = ShemaAwareDatabaseCreation(self)
 
     def init_connection_state(self):
         super(DatabaseWrapper, self).init_connection_state()
@@ -58,10 +60,6 @@ class DatabaseWrapper(base.DatabaseWrapper):
             return func(self, schema, *args, **kwargs)
         return wrapper
 
-    @cached_property
-    def PUBLIC_SCHEMA(self):
-        return getattr(settings, 'PUBLIC_SCHEMA', 'public')
-
     @property
     def schema(self):
         """Currently active database schema."""
@@ -97,6 +95,10 @@ class DatabaseWrapper(base.DatabaseWrapper):
     def drop_schema(self, schema):
         """DROP schema with EVERY tables."""
         self.cursor().execute('DROP SCHEMA %s CASCADE', [schema])
+
+    @cached_property
+    def PUBLIC_SCHEMA(self):
+        return getattr(settings, 'PUBLIC_SCHEMA', 'public')
 
     # We need to make it a property, otherwise it
     # "triggers some setup which tries to load the backend which in turn will fail cause it tries to retrigger that"
