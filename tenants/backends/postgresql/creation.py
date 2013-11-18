@@ -61,7 +61,7 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
                      for f in field_constraints]))
 
         full_statement = [style.SQL_KEYWORD('CREATE TABLE') + ' ' +
-                          style.SQL_TABLE(qn(opts.db_table)) + ' (']
+                          style.SQL_TABLE(self._table_prefix(model) + qn(opts.db_table)) + ' (']
         for i, line in enumerate(table_output):  # Combine and add commas.
             full_statement.append(
                 '    %s%s' % (line, ',' if i < len(table_output) - 1 else ''))
@@ -95,7 +95,7 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
         rel_to = field.rel.to
         if rel_to in known_models or rel_to == model:
             output = [style.SQL_KEYWORD('REFERENCES') + ' ' +
-                style.SQL_TABLE(qn(rel_to._meta.db_table)) + ' (' +
+                style.SQL_TABLE(self._table_prefix(rel_to) + qn(rel_to._meta.db_table)) + ' (' +
                 style.SQL_FIELD(qn(rel_to._meta.get_field(
                     field.rel.field_name).column)) + ')' +
                 self.connection.ops.deferrable_sql()
@@ -131,10 +131,10 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
                 r_name = '%s_refs_%s_%s' % (
                     r_col, col, self._digest(r_table, table))
                 final_output.append(style.SQL_KEYWORD('ALTER TABLE') +
-                    ' %s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s (%s)%s;' %
-                    (qn(r_table), qn(truncate_name(
+                    ' %s%s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s%s (%s)%s;' %
+                    (self._table_prefix(rel_class), qn(r_table), qn(truncate_name(
                         r_name, self.connection.ops.max_name_length())),
-                    qn(r_col), qn(table), qn(col),
+                    qn(r_col), self._table_prefix(model), qn(table), qn(col),
                     self.connection.ops.deferrable_sql()))
             del pending_references[model]
         return final_output
@@ -155,9 +155,9 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
 
             def get_index_sql(index_name, opclass=''):
                 return (style.SQL_KEYWORD('CREATE INDEX') + ' ' +
-                        style.SQL_TABLE(qn(truncate_name(index_name,self.connection.ops.max_name_length()))) + ' ' +
+                        style.SQL_TABLE(qn(truncate_name(index_name, self.connection.ops.max_name_length()))) + ' ' +
                         style.SQL_KEYWORD('ON') + ' ' +
-                        style.SQL_TABLE(qn(db_table)) + ' ' +
+                        style.SQL_TABLE(self._table_prefix(model) + qn(db_table)) + ' ' +
                         "(%s%s)" % (style.SQL_FIELD(qn(f.column)), opclass) +
                         "%s;" % tablespace_sql)
 
@@ -199,7 +199,7 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
             style.SQL_KEYWORD("CREATE INDEX") + " " +
             style.SQL_TABLE(qn(truncate_name(index_name, self.connection.ops.max_name_length()))) + " " +
             style.SQL_KEYWORD("ON") + " " +
-            style.SQL_TABLE(qn(model._meta.db_table)) + " " +
+            style.SQL_TABLE(self._table_prefix(model) + qn(model._meta.db_table)) + " " +
             "(%s)" % style.SQL_FIELD(", ".join(field_names)) +
             "%s;" % tablespace_sql,
         ]
@@ -215,7 +215,7 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
         # Drop the table now
         qn = self.connection.ops.quote_name
         output = ['%s %s;' % (style.SQL_KEYWORD('DROP TABLE'),
-                              style.SQL_TABLE(qn(model._meta.db_table)))]
+                              style.SQL_TABLE(self._table_prefix(model) + qn(model._meta.db_table)))]
         if model in references_to_delete:
             output.extend(self.sql_remove_table_constraints(
                 model, references_to_delete, style))
@@ -240,7 +240,7 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
                 col, r_col, self._digest(table, r_table))
             output.append('%s %s %s %s;' % \
                 (style.SQL_KEYWORD('ALTER TABLE'),
-                style.SQL_TABLE(qn(table)),
+                style.SQL_TABLE(qn(self._table_prefix(rel_class)) + qn(table)),
                 style.SQL_KEYWORD(self.connection.ops.drop_foreignkey_sql()),
                 style.SQL_FIELD(qn(truncate_name(
                     r_name, self.connection.ops.max_name_length())))))
@@ -260,10 +260,6 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
         elif model in conn.TENANT_MODELS:
             return qn(conn.schema) + '.'
 
-        elif model in conn.SHARED_MODELS:
-            return qn(conn.PUBLIC_SCHEMA)
-
         else:
-            # models only in SHARED_APPS models don't need table prefix, because
-            # when we need to operate on public schema, search path is set exclusively to it.
-            return ''
+            assert model in conn.SHARED_MODELS
+            return qn(conn.PUBLIC_SCHEMA) + '.'
