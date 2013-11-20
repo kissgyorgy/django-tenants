@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db.models import get_app, get_models, get_model
+from django.db import connection as conn
 
 
 TENANT_MODEL = get_model(*settings.TENANT_MODEL.split("."))
@@ -18,3 +19,11 @@ def remove_www_and_port(hostname):
     hostname = hostname[4:] if hostname.startswith('www.') else hostname
 
     return hostname.split(':')[0]
+
+
+def is_shared(model):
+    """
+    Tell if a given model is one of SHARED_APPS's models or in FORCED_TO_PUBLIC_MODELS settings.
+    """
+    return model in conn.SHARED_MODELS or model in conn.FORCED_MODELS
+

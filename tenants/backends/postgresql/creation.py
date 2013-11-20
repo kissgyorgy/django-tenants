@@ -1,8 +1,9 @@
 from django.db.backends.postgresql_psycopg2.creation import DatabaseCreation
 from django.db.backends.util import truncate_name
+from tenants.utils import is_shared
 
 
-class ShemaAwareDatabaseCreation(DatabaseCreation):
+class SchemaAwareDatabaseCreation(DatabaseCreation):
     def sql_create_model(self, model, style, known_models=set()):
         """
         Returns the SQL required to create a single model, as a tuple of:
@@ -10,7 +11,8 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
         Code copied from django.db.backends.creation.BaseDatabaseCreation in Django 1.6.0.
         """
         opts = model._meta
-        if not opts.managed or opts.proxy or opts.swapped:
+        if not opts.managed or opts.proxy or opts.swapped or \
+                not self._create_for_schema(model):
             return [], {}
         final_output = []
         table_output = []
@@ -86,6 +88,12 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
 
         return final_output, pending_references
 
+    def sql_indexes_for_model(self, model, style):
+        # Syncdb calls this method, so we need to control it
+        if not self._create_for_schema(model):
+            return []
+        return super(SchemaAwareDatabaseCreation, self).sql_indexes_for_model(model, style)
+
     def sql_for_inline_foreign_key_references(self, model, field, known_models, style):
         """
         Return the SQL snippet defining the foreign key reference for a field.
@@ -114,6 +122,9 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
         Returns any ALTER TABLE statements to add constraints after the fact.
         """
         # Code copied from django.db.backends.creation.BaseDatabaseCreation in Django 1.6.0.
+
+        # We always need to create every ForeignKey reference,
+        # so no need to check _create_for_schema()
         opts = model._meta
         if not opts.managed or opts.swapped:
             return []
@@ -210,7 +221,8 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
         model.
         """
         # Code copied from django.db.backends.creation.BaseDatabaseCreation in Django 1.6.0.
-        if not model._meta.managed or model._meta.proxy or model._meta.swapped:
+        if not model._meta.managed or model._meta.proxy or model._meta.swapped or \
+                not self._create_for_schema(model):
             return []
         # Drop the table now
         qn = self.connection.ops.quote_name
@@ -227,7 +239,8 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
 
     def sql_remove_table_constraints(self, model, references_to_delete, style):
         # Code copied from django.db.backends.creation.BaseDatabaseCreation in Django 1.6.0.
-        if not model._meta.managed or model._meta.proxy or model._meta.swapped:
+        if not model._meta.managed or model._meta.proxy or model._meta.swapped or \
+                not self._create_for_schema(model):
             return []
         output = []
         qn = self.connection.ops.quote_name
@@ -249,17 +262,26 @@ class ShemaAwareDatabaseCreation(DatabaseCreation):
 
     def _table_prefix(self, model):
         """
-        Return the proper table prefix based on SHARED_APPS, TENANT_APPS, PUBLIC_MODELS settings and current schema.
+        Return the proper table prefix (schema).
+
+        Based on SHARED_APPS, TENANT_APPS, FORCED_TO_PUBLIC_MODELS settings and current schema.
         """
         conn = self.connection
-        qn = conn.ops.quote_name
 
-        if model in conn.PUBLIC_MODELS:
-            return qn(conn.PUBLIC_SCHEMA) + '.'
-
-        elif model in conn.TENANT_MODELS:
-            return qn(conn.schema) + '.'
-
+        if model in conn.FORCED_MODELS:
+            schema = conn.PUBLIC_SCHEMA
+        elif model in conn.TENANT_MODELS and not conn.schema_is_public():
+            schema = conn.schema
         else:
             assert model in conn.SHARED_MODELS
-            return qn(conn.PUBLIC_SCHEMA) + '.'
+            schema = conn.PUBLIC_SCHEMA
+
+        return conn.ops.quote_name(schema) + '.'
+
+    def _create_for_schema(self, model):
+        """
+        Decide if model need to be created for the current schema. Returns True or False.
+        """
+        conn = self.connection
+        return (conn.schema_is_public() and is_shared(model) or
+                not conn.schema_is_public() and model in conn.TENANT_MODELS and model not in conn.FORCED_MODELS)

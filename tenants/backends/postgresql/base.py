@@ -6,7 +6,8 @@ from django.db.backends.postgresql_psycopg2 import base
 from django.db import ProgrammingError
 from django.db.models import get_model
 from django.utils.functional import cached_property
-from tenants.backends.postgresql.creation import ShemaAwareDatabaseCreation
+from tenants.backends.postgresql.creation import SchemaAwareDatabaseCreation
+from tenants.backends.postgresql.introspection import SchemaAwareDatabaseIntrospection
 from tenants.utils import get_app_models
 
 
@@ -23,7 +24,8 @@ class DatabaseWrapper(base.DatabaseWrapper):
         super(DatabaseWrapper, self).__init__(*args, **kwargs)
         # Rather fail than expose some data which the tenant should not see!
         self._schema = None
-        self.creation = ShemaAwareDatabaseCreation(self)
+        self.creation = SchemaAwareDatabaseCreation(self)
+        self.introspection = SchemaAwareDatabaseIntrospection(self)
 
     def init_connection_state(self):
         super(DatabaseWrapper, self).init_connection_state()
@@ -33,11 +35,12 @@ class DatabaseWrapper(base.DatabaseWrapper):
         self.set_autocommit(True)
 
         # Do it in every new connection, not in every cursor() request,
-        # so it might result less queries
+        # so there will be less queries
         self._set_search_path()
 
         # PEP-249, also respect database setting
         self.set_autocommit(False)
+
     def validate_schema(self, schema):
         """
         Validate schema name based on PostgreSQL documentation.
@@ -62,7 +65,9 @@ class DatabaseWrapper(base.DatabaseWrapper):
 
     @property
     def schema(self):
-        """Currently active database schema."""
+        """
+        Currently active database schema.
+        """
         return self._schema
 
     @schema.setter
@@ -82,8 +87,9 @@ class DatabaseWrapper(base.DatabaseWrapper):
         Return True or False
         """
         cursor = self.cursor()
-        cursor.execute("SELECT EXISTS(SELECT 1 FROM information_schema.schemata "
-                       "WHERE schema_name = %s)", [schema])
+        # THis is the fastest method: http://stackoverflow.com/a/13877950/720077
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace "
+                       "WHERE nspname = %s)", [schema])
         return cursor.fetchone()[0]
 
     @requires_valid_schema
@@ -93,8 +99,16 @@ class DatabaseWrapper(base.DatabaseWrapper):
 
     @requires_valid_schema
     def drop_schema(self, schema):
-        """DROP schema with EVERY tables."""
-        self.cursor().execute('DROP SCHEMA %s CASCADE', [schema])
+        """
+        DROP schema with EVERY tables. No problem if schema doesn't exists.
+        """
+        self.cursor().execute('DROP SCHEMA IF EXISTS "%s" CASCADE' % schema)
+
+    def schema_is_public(self):
+        """
+        Tell if the current schema is the public schema or not.
+        """
+        return self.schema == self.PUBLIC_SCHEMA
 
     @cached_property
     def PUBLIC_SCHEMA(self):
@@ -125,7 +139,7 @@ class DatabaseWrapper(base.DatabaseWrapper):
                 if appstr in settings.INSTALLED_APPS]
 
     @cached_property
-    def PUBLIC_MODELS(self):
+    def FORCED_MODELS(self):
         """
         Return the list of models generated from SHARED_MODELS setting.
 
@@ -137,7 +151,7 @@ class DatabaseWrapper(base.DatabaseWrapper):
 
         models = []
         # SHARED_MODELS is optional, so it will be empty if the setting is not available
-        for modstr in getattr(settings, 'PUBLIC_MODELS', ()):
+        for modstr in getattr(settings, 'FORCED_TO_PUBLIC_MODELS', ()):
             mod_split = modstr.split('.')
             # check for South
             if mod_split[-2] in installed_app_labels:
@@ -153,9 +167,9 @@ class DatabaseWrapper(base.DatabaseWrapper):
             raise ProgrammingError('Schema is not set on connection')
 
         # Database will search in schema from left to right when
-        # looking for the object (table, index, sequence, etc.)
-        # so if something exists on the tenant schema, it will found that first
+        # looking for the object (table, index, sequence, etc.) so
+        # if something exists on the tenant's schema, it will found that first
         if self._schema == self.PUBLIC_SCHEMA:
             self.cursor().execute('SET search_path TO %s', [self.PUBLIC_SCHEMA])
         else:
-            self.cursor().execute('SET search_path TO %s,%s', [self._schema, self.PUBLIC_SCHEMA])
+            self.cursor().execute('SET search_path TO %s, %s', [self._schema, self.PUBLIC_SCHEMA])
