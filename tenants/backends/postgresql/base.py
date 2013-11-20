@@ -3,7 +3,6 @@ from functools import wraps
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db.backends.postgresql_psycopg2 import base
-from django.db import ProgrammingError
 from django.db.models import get_model
 from django.utils.functional import cached_property
 from tenants.backends.postgresql.creation import SchemaAwareDatabaseCreation
@@ -161,15 +160,14 @@ class DatabaseWrapper(base.DatabaseWrapper):
 
     def _set_search_path(self):
         if not self._schema:
-            # The connection will get reused, so make sure
-            # we don't allow connecting until schema is set!
-            self.connection = None
-            raise ProgrammingError('Schema is not set on connection')
-
-        # Database will search in schema from left to right when
-        # looking for the object (table, index, sequence, etc.) so
-        # if something exists on the tenant's schema, it will found that first
-        if self._schema == self.PUBLIC_SCHEMA:
+            # SELECTs will fail with this search path, except explicit "SELECT * FROM schema.table;"
+            # which is what we want; the ability to use the database connection even if schema is not set,
+            # but don't show incorrect data to the tenant if theres something wrong.
+            self.cursor().execute("SET search_path TO ''")
+        elif self._schema == self.PUBLIC_SCHEMA:
             self.cursor().execute('SET search_path TO %s', [self.PUBLIC_SCHEMA])
         else:
+            # Database will search in schema from left to right when
+            # looking for the object (table, index, sequence, etc.) so
+            # if something exists on the tenant's schema, it will found that first
             self.cursor().execute('SET search_path TO %s, %s', [self._schema, self.PUBLIC_SCHEMA])
