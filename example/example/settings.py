@@ -41,9 +41,12 @@ SHARED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'debug_toolbar',
+    'example',
 )
 
 FORCED_TO_PUBLIC_MODELS = ('auth.User',)
+
+TENANT_MODEL = 'example.Team'
 
 INSTALLED_APPS = TENANT_APPS + SHARED_APPS + ('tenants',)
 

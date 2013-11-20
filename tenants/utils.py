@@ -1,9 +1,5 @@
-from django.conf import settings
-from django.db.models import get_app, get_models, get_model
+from django.db.models import get_app, get_models
 from django.db import connection as conn
-
-
-TENANT_MODEL = get_model(*settings.TENANT_MODEL.split("."))
 
 
 def get_app_models(app_label):

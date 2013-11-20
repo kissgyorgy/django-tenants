@@ -1,5 +1,5 @@
 from django.db import models, connection as conn
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import PermissionDenied
 from tenants.backends.postgresql.base import IntegrityError
 from tenants.signals import post_schema_create, pre_schema_delete
 
@@ -18,12 +18,12 @@ class BaseTenant(models.Model):
         """
         Save the tenant instance in the database after creating the related database schema.
         """
-        is_new = self.pk is None
-        if is_new and conn.schema not in (self.schema, conn.PUBLIC_SCHEMA):
+        new = self.pk is None
+        if not new and conn.schema not in (self.schema, conn.PUBLIC_SCHEMA):
             raise PermissionDenied("Can't update tenant outside it's own schema or the public schema. "
                                    "Current schema is %s." % conn.schema)
 
-        if is_new and create_schema:
+        if new and create_schema:
             conn.validate_schema(self.schema)
             if conn.schema_exists(self.schema):
                 raise IntegrityError('Schema %s already exists' % self.schema)

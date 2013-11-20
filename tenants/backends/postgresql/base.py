@@ -113,6 +113,10 @@ class DatabaseWrapper(base.DatabaseWrapper):
     def PUBLIC_SCHEMA(self):
         return getattr(settings, 'PUBLIC_SCHEMA', 'public')
 
+    @cached_property
+    def TENANT_MODEL(self):
+        return get_model(*settings.TENANT_MODEL.split("."))
+
     # We need to make it a property, otherwise it
     # "triggers some setup which tries to load the backend which in turn will fail cause it tries to retrigger that"
     # Basically, we can only construct this list in runtime, after the database backend properly built.
