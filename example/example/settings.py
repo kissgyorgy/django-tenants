@@ -30,6 +30,7 @@ ALLOWED_HOSTS = []
 # Application definition
 TENANT_APPS = (
     'django.contrib.admin',
+    'django.contrib.auth',
 )
 
 SHARED_APPS = (
@@ -42,9 +43,9 @@ SHARED_APPS = (
     'debug_toolbar',
 )
 
-INSTALLED_APPS = TENANT_APPS + SHARED_APPS + ('tenants',)
+FORCED_TO_PUBLIC_MODELS = ('auth.User',)
 
-PUBLIC_MODELS = ('auth.User',)
+INSTALLED_APPS = TENANT_APPS + SHARED_APPS + ('tenants',)
 
 MIDDLEWARE_CLASSES = (
     'django.contrib.sessions.middleware.SessionMiddleware',
