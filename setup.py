@@ -23,5 +23,6 @@ setup(
     install_requires=[
         'Django>=1.6,<1.7',
         'psycopg2',
+        'django-debug-toolbar'
     ],
 )
