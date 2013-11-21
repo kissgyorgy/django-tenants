@@ -51,6 +51,7 @@ TENANT_MODEL = 'example.Team'
 INSTALLED_APPS = TENANT_APPS + SHARED_APPS + ('tenants',)
 
 MIDDLEWARE_CLASSES = (
+    'tenants.middleware.TenantMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
