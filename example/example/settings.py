@@ -26,6 +26,7 @@ TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
+INTERNAL_IPS = ['127.0.0.1', '192.168.1.3']
 
 # Application definition
 TENANT_APPS = (
@@ -51,6 +52,7 @@ TENANT_MODEL = 'example.Team'
 INSTALLED_APPS = TENANT_APPS + SHARED_APPS + ('tenants',)
 
 MIDDLEWARE_CLASSES = (
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'tenants.middleware.TenantMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -94,3 +96,18 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.6/howto/static-files/
 
 STATIC_URL = '/static/'
+
+
+DEBUG_TOOLBAR_PANELS = (
+    'debug_toolbar.panels.version.VersionDebugPanel',
+    'debug_toolbar.panels.timer.TimerDebugPanel',
+    'debug_toolbar.panels.settings_vars.SettingsVarsDebugPanel',
+    'debug_toolbar.panels.headers.HeaderDebugPanel',
+    'debug_toolbar.panels.request_vars.RequestVarsDebugPanel',
+    'debug_toolbar.panels.sql.SQLDebugPanel',
+    'debug_toolbar.panels.template.TemplateDebugPanel',
+    'debug_toolbar.panels.cache.CacheDebugPanel',
+    'debug_toolbar.panels.signals.SignalDebugPanel',
+    'debug_toolbar.panels.logger.LoggingPanel',
+    'tenants.debug_toolbar.panel.TenantsDebugPanel',
+)

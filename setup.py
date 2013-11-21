@@ -9,7 +9,7 @@ setup(
     packages=find_packages(),
     url='https://github.com/stakingadmin/django-tenants',
     license='MIT',
-    description='Multitenancy support for Django.',
+    description='Multitenancy support for Django with PostgreSQL schemas.',
     long_description=open('README.rst').read(),
     classifiers=[
         'Programming Language :: Python',
