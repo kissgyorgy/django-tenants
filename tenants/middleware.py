@@ -12,7 +12,9 @@ class TenantMiddleware(object):
     def process_request(self, request):
 
         hostname_without_port = remove_www_and_port(request.get_host())
+
+        # Initially, the search_path is set to the public schema only, so we can QUERY the tenants
         request.tenant = get_object_or_404(connection.TENANT_MODEL, domain=hostname_without_port)
 
-        # this automatically set the correct search path
+        # this automatically sets the correct search path
         connection.schema = request.tenant.schema

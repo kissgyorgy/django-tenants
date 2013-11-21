@@ -2,6 +2,7 @@ import re
 from functools import wraps
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.db import ProgrammingError
 from django.db.backends.postgresql_psycopg2 import base
 from django.db.models import get_model
 from django.utils.functional import cached_property
@@ -21,8 +22,6 @@ class DatabaseWrapper(base.DatabaseWrapper):
 
     def __init__(self, *args, **kwargs):
         super(DatabaseWrapper, self).__init__(*args, **kwargs)
-        # Rather fail than expose some data which the tenant should not see!
-        self._schema = None
         self.creation = SchemaAwareDatabaseCreation(self)
         self.introspection = SchemaAwareDatabaseIntrospection(self)
 
@@ -32,6 +31,9 @@ class DatabaseWrapper(base.DatabaseWrapper):
         # For explanation: https://code.djangoproject.com/ticket/21453
         # This method is in transaction mode (PEP-249)
         self.set_autocommit(True)
+
+        # First, set the schema to public, so we can QUERY the tenants table
+        self._schema = self.PUBLIC_SCHEMA
 
         # Do it in every new connection, not in every cursor() request,
         # so there will be less queries
@@ -111,7 +113,7 @@ class DatabaseWrapper(base.DatabaseWrapper):
 
     @cached_property
     def PUBLIC_SCHEMA(self):
-        return getattr(settings, 'PUBLIC_SCHEMA', 'public')
+        return self.settings_dict.get('PUBLIC_SCHEMA', 'public')
 
     @cached_property
     def TENANT_MODEL(self):
@@ -164,10 +166,10 @@ class DatabaseWrapper(base.DatabaseWrapper):
 
     def _set_search_path(self):
         if not self._schema:
-            # SELECTs will fail with this search path, except explicit "SELECT * FROM schema.table;"
-            # which is what we want; the ability to use the database connection even if schema is not set,
-            # but don't show incorrect data to the tenant if theres something wrong.
-            self.cursor().execute("SET search_path TO ''")
+            # The connection will get reused, so make sure
+            # we don't allow connecting until schema is set!
+            self.connection = None
+            raise ProgrammingError('Schema not set on connection')
         elif self._schema == self.PUBLIC_SCHEMA:
             self.cursor().execute('SET search_path TO %s', [self.PUBLIC_SCHEMA])
         else:
