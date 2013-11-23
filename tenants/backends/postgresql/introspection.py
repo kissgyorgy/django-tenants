@@ -4,7 +4,6 @@ from django.db.backends.postgresql_psycopg2.introspection import DatabaseIntrosp
 class SchemaAwareDatabaseIntrospection(DatabaseIntrospection):
     def get_table_list(self, cursor):
         """Returns a list of table names in the current schema."""
-        # FIXME: query based on schema and models
         cursor.execute("""
             SELECT c.relname
             FROM pg_catalog.pg_class c

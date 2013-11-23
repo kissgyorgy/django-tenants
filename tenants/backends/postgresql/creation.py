@@ -152,7 +152,8 @@ class SchemaAwareDatabaseCreation(DatabaseCreation):
         return final_output
 
     def sql_indexes_for_field(self, model, f, style):
-        # Code copied from django.db.backends.postgresql_psycopg2.creation.DatabaseCreation in Django 1.6.0.
+        # Code copied from django.db.backends.postgresql_psycopg2.creation.DatabaseCreation
+        # from Django 1.6.0.
         output = []
         if f.db_index or f.unique:
             qn = self.connection.ops.quote_name
@@ -286,4 +287,5 @@ class SchemaAwareDatabaseCreation(DatabaseCreation):
         """
         return (self.connection.schema_is_public() and is_shared(model) or
                 not self.connection.schema_is_public() and
+                    # don't re-create models already synced to public schema
                     model._meta.app_label in TENANT_APP_LABELS and dotted_name(model) not in FORCED_MODELS)
