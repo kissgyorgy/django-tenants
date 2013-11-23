@@ -22,9 +22,9 @@ if not (settings.TENANT_APPS + settings.SHARED_APPS + ('tenants', ) == settings.
     raise ImproperlyConfigured(recommended_config)
 
 
-TENANT_APP_LABELS = [app.split('.')[-1] for app in settings.TENANT_APPS]
+TENANT_APP_LABELS = tuple(app.split('.')[-1] for app in settings.TENANT_APPS)
 
 # SHARED_APPS and FORCED_TO_PUBLIC_MODELS settings are optional,
 # so make them an empty tuple if not exists
-SHARED_APP_LABELS = [app.split('.')[-1] for app in getattr(settings, 'SHARED_APPS', ())]
+SHARED_APP_LABELS = tuple(app.split('.')[-1] for app in getattr(settings, 'SHARED_APPS', ()))
 FORCED_MODELS = getattr(settings, 'FORCED_TO_PUBLIC_MODELS', ())
