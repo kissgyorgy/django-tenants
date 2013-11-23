@@ -21,9 +21,9 @@ if 'tenants' in settings.SHARED_APPS + settings.TENANT_APPS:
 if not (settings.TENANT_APPS + settings.SHARED_APPS + ('tenants', ) == settings.INSTALLED_APPS):
     raise ImproperlyConfigured(recommended_config)
 
-for pm in conn.FORCED_MODELS:
-    if pm not in conn.SHARED_MODELS:
-        raise ImproperlyConfigured('Every PUBLIC_MODEL should belong to one of the SHARED_APPS '
-                                   'to avoid unexpected behaviour.')
+#for pm in conn.FORCED_MODELS:
+#    if pm not in conn.SHARED_MODELS:
+#        raise ImproperlyConfigured('Every PUBLIC_MODEL should belong to one of the SHARED_APPS '
+#                                   'to avoid unexpected behaviour.')
 
 # check if TENANT_MODEL's app is in installed apps
