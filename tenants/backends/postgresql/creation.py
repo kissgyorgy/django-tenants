@@ -1,6 +1,7 @@
 from django.db.backends.postgresql_psycopg2.creation import DatabaseCreation
 from django.db.backends.util import truncate_name
-from tenants.utils import is_shared
+from tenants import TENANT_APP_LABELS, SHARED_APP_LABELS, FORCED_MODELS
+from tenants.utils import dotted_name, is_shared
 
 
 class SchemaAwareDatabaseCreation(DatabaseCreation):
@@ -267,13 +268,14 @@ class SchemaAwareDatabaseCreation(DatabaseCreation):
         Based on SHARED_APPS, TENANT_APPS, FORCED_TO_PUBLIC_MODELS settings and current schema.
         """
         conn = self.connection
+        app_label = model._meta.app_label
 
-        if model in conn.FORCED_MODELS:
+        if dotted_name(model) in FORCED_MODELS:
             schema = conn.PUBLIC_SCHEMA
-        elif model in conn.TENANT_MODELS and not conn.schema_is_public():
+        elif app_label in TENANT_APP_LABELS and not conn.schema_is_public():
             schema = conn.schema
         else:
-            assert model in conn.SHARED_MODELS
+            assert app_label in SHARED_APP_LABELS
             schema = conn.PUBLIC_SCHEMA
 
         return conn.ops.quote_name(schema) + '.'
@@ -282,6 +284,6 @@ class SchemaAwareDatabaseCreation(DatabaseCreation):
         """
         Decide if model need to be created for the current schema. Returns True or False.
         """
-        conn = self.connection
-        return (conn.schema_is_public() and is_shared(model) or
-                not conn.schema_is_public() and model in conn.TENANT_MODELS and model not in conn.FORCED_MODELS)
+        return (self.connection.schema_is_public() and is_shared(model) or
+                not self.connection.schema_is_public() and
+                    model._meta.app_label in TENANT_APP_LABELS and dotted_name(model) not in FORCED_MODELS)

@@ -1,11 +1,4 @@
-from django.db.models import get_app, get_models
-from django.db import connection as conn
-
-
-def get_app_models(app_label):
-    """Get all models from app_label or full app_string."""
-    app = get_app(app_label.split('.')[-1])
-    return get_models(app, include_auto_created=True)
+from tenants import SHARED_APP_LABELS, FORCED_MODELS
 
 
 def remove_www_and_port(hostname):
@@ -19,7 +12,15 @@ def remove_www_and_port(hostname):
 
 def is_shared(model):
     """
-    Tell if a given model is one of SHARED_APPS's models or in FORCED_TO_PUBLIC_MODELS settings.
+    Tell if a given model is one of SHARED_APPS's models
+    or in FORCED_TO_PUBLIC_MODELS settings.
     """
-    return model in conn.SHARED_MODELS or model in conn.FORCED_MODELS
+    return model._meta.app_label in SHARED_APP_LABELS or \
+           dotted_name(model) in FORCED_MODELS
 
+
+def dotted_name(model):
+    """
+    return the "applabel.ModelClass" for a given model.
+    """
+    return model._meta.app_label + '.' + model._meta.object_name

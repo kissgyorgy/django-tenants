@@ -1,4 +1,3 @@
-from django.db.models import get_models
 from django.db import connection as threadlocal_conn
 from pytest import mark, fixture
 
@@ -44,32 +43,8 @@ def test_changing_schema_change_search_path():
     assert c.fetchone()[0] == 'newtenant, public'
 
 
-# FIXME ezt kijavitani, valtozo konfiggal tesztelni
-def test_TENANT_MODELS():
-    import django.contrib.auth.models as auth_app
-    auth_models = get_models(auth_app)
-    assert set(auth_models).issubset(set(threadlocal_conn.TENANT_MODELS))
-
-
 def test_schema_exists_function():
     cur = threadlocal_conn.cursor()
     cur.execute('CREATE SCHEMA tenantname')
     assert threadlocal_conn.schema_exists('tenantname') is True
     cur.execute('SELECT current_database()')
-
-
-# settings fixture comes from pytest-django.
-# it will be restored to the original state when the test function ends
-def test_empty_settings_connection_properties(settings, conn):
-    settings.TENANT_APPS = ()
-    settings.SHARED_APPS = ()
-    settings.TENANT_MODEL = None
-    settings.SHARED_MODELS = ()
-    settings.INSTALLED_APPS = settings.TENANT_APPS
-
-    from example.models import Team
-
-    assert conn.TENANT_MODELS == []
-    assert conn.SHARED_MODELS == []
-    assert conn.FORCED_MODELS == []
-

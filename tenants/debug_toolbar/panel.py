@@ -2,9 +2,9 @@
 Schema panel for django-debug-toolbar.
 """
 
-from collections import OrderedDict
 from debug_toolbar.panels import DebugPanel
 from django.db import connection as conn
+from tenants import TENANT_APP_LABELS, SHARED_APP_LABELS, FORCED_MODELS
 
 
 class TenantsDebugPanel(DebugPanel):
@@ -34,7 +34,7 @@ class TenantsDebugPanel(DebugPanel):
             'connection': [('schema', conn.schema), ('PUBLIC_SCHEMA', conn.PUBLIC_SCHEMA),
                            ('schema_is_public()', conn.schema_is_public()),
                            ('search_path', search_path),
-                           ('TENANT_MODELS', conn.TENANT_MODELS),
-                           ('SHARED_MODELS', conn.SHARED_MODELS),
-                           ('FORCED_MODELS:', conn.FORCED_MODELS)]
+                           ('TENANT_MODELS', TENANT_APP_LABELS),
+                           ('SHARED_MODELS', SHARED_APP_LABELS),
+                           ('FORCED_MODELS:', FORCED_MODELS)]
         })
