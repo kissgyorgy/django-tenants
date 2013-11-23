@@ -27,3 +27,9 @@ if not (settings.TENANT_APPS + settings.SHARED_APPS + ('tenants', ) == settings.
 #                                   'to avoid unexpected behaviour.')
 
 # check if TENANT_MODEL's app is in installed apps
+
+TENANT_APP_LABELS = [app.split('.')[-1] for app in settings.TENANT_APPS]
+
+# SHARED_APPS and FORCED_TO_PUBLIC_MODELS settings are optional, so make it an empty tuple if not exists
+SHARED_APP_LABELS = [app.split('.')[-1] for app in getattr(settings, 'SHARED_APPS', ())]
+FORCED_MODELS = getattr(settings, 'FORCED_TO_PUBLIC_MODELS', ())

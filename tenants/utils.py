@@ -1,11 +1,4 @@
-from django.conf import settings
-
-
-TENANT_APP_LABELS = [app.split('.')[-1] for app in settings.TENANT_APPS]
-
-# SHARED_APPS and FORCED_TO_PUBLIC_MODELS settings are optional, so make it an empty tuple if not exists
-SHARED_APP_LABELS = [app.split('.')[-1] for app in getattr(settings, 'SHARED_APPS', ())]
-FORCED_MODELS = getattr(settings, 'FORCED_TO_PUBLIC_MODELS', ())
+from tenants import SHARED_APP_LABELS, FORCED_MODELS
 
 
 def remove_www_and_port(hostname):

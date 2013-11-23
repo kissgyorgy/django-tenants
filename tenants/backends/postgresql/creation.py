@@ -1,6 +1,7 @@
 from django.db.backends.postgresql_psycopg2.creation import DatabaseCreation
 from django.db.backends.util import truncate_name
-from tenants.utils import TENANT_APP_LABELS, SHARED_APP_LABELS, FORCED_MODELS, dotted_name, is_shared
+from tenants import TENANT_APP_LABELS, SHARED_APP_LABELS, FORCED_MODELS
+from tenants.utils import dotted_name, is_shared
 
 
 class SchemaAwareDatabaseCreation(DatabaseCreation):
