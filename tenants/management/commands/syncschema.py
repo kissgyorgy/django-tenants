@@ -4,6 +4,7 @@ from django.db import connection as conn
 from django.db.models.signals import post_syncdb
 from django.contrib.auth.management import create_permissions, create_superuser
 from django.contrib.auth import models as auth_app
+from tenants import TENANT_APP_LABELS, SHARED_APP_LABELS, FORCED_MODELS
 from tenants.utils import is_shared
 
 
@@ -28,7 +29,7 @@ class Command(BaseCommand):
             conn.schema = schema
             if not conn.schema_exists(schema):
                 conn.create_schema(schema)
-            auth_user_not_in_tenant = auth_app.User in conn.FORCED_MODELS or auth_app.User not in conn.TENANT_MODELS
+            auth_user_not_in_tenant = 'auth.User' in FORCED_MODELS or 'auth' not in TENANT_APP_LABELS
             if (conn.schema_is_public() and not is_shared(auth_app.User) or
                (not conn.schema_is_public() and auth_user_not_in_tenant)):
                     if verbosity > 1:
