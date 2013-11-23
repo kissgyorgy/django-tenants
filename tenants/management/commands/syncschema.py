@@ -4,7 +4,7 @@ from django.db import connection as conn
 from django.db.models.signals import post_syncdb
 from django.contrib.auth.management import create_permissions, create_superuser
 from django.contrib.auth import models as auth_app
-from tenants import TENANT_APP_LABELS, SHARED_APP_LABELS, FORCED_MODELS
+from tenants import TENANT_APP_LABELS, FORCED_MODELS
 from tenants.utils import is_shared
 
 
@@ -33,7 +33,7 @@ class Command(BaseCommand):
             if (conn.schema_is_public() and not is_shared(auth_app.User) or
                (not conn.schema_is_public() and auth_user_not_in_tenant)):
                     if verbosity > 1:
-                        write("Disconnect auth.User signal handlers, because auth.User is not synced...")
+                        write("Disconnect auth.User signal handlers, as it is not synced...")
                     post_syncdb.disconnect(create_permissions,
                                            dispatch_uid="django.contrib.auth.management.create_permissions")
                     post_syncdb.disconnect(create_superuser, sender=auth_app,

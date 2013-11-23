@@ -45,7 +45,6 @@ class DatabaseWrapper(base.DatabaseWrapper):
         """
         Validate schema name based on PostgreSQL documentation.
 
-        See: http://www.postgresql.org/docs/9.1/static/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS
         It protect agains SQL injections, as only valid identifier will be allowed as schema names.
         Throws ValidationError if not valid, else return True
         """
@@ -108,7 +107,7 @@ class DatabaseWrapper(base.DatabaseWrapper):
         """
         Tell if the current schema is the public schema or not.
         """
-        return self.schema == self.PUBLIC_SCHEMA
+        return self._schema == self.PUBLIC_SCHEMA
 
     @cached_property
     def PUBLIC_SCHEMA(self):
